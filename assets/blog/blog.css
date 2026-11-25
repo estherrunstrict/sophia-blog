@@ -86,6 +86,69 @@ svg{width:1em;height:1em;flex:none}
 .entry audio{width:100%;height:2.75rem}.entry p{margin:.8rem 0 0;font-size:1.03rem;line-height:1.7;white-space:pre-wrap}.entry .alt{display:inline-block;margin-top:.5rem;font-size:.85rem;color:var(--ink-2)}
 .empty{padding:2.4rem 1.4rem;border:1px dashed #0000002a;border-radius:.8rem;text-align:center;color:var(--ink-2);background:#ffffff80}.empty img{width:5.5rem;margin:0 auto .8rem}
 
+/* ---------- Schedule: a paper wall calendar written in pen ---------- */
+[data-theme="simon"]{--pen:#1f45c8;--pen-2:#3f68e6}[data-theme="sophia"]{--pen:#7a2fc0;--pen-2:#a35ae0}
+.page:has(.wall){max-width:80rem}
+.wall{position:relative;display:grid;grid-template-columns:minmax(0,1fr) 19rem;gap:clamp(1.5rem,3vw,3rem);align-items:start;padding:1rem 0 2rem}
+.cal{position:relative;perspective:1600px;padding-top:clamp(.9rem,1.6vw,1.4rem);rotate:-.4deg}
+.spiral{position:absolute;z-index:3;left:3%;right:3%;top:0;width:94%;height:auto;pointer-events:none;filter:drop-shadow(0 3px 2px rgba(0,0,0,.35))}
+.leaf{position:relative;z-index:1;padding:0 0 1.2rem;border-radius:.35rem;background:#fbfaf6 url(/assets/blog/art/cal-paper.webp) center/900px;color:#2a2a2e;
+  box-shadow:0 1px 0 #fff inset,0 .15rem .3rem rgba(0,0,0,.12),0 1.6rem 3rem -1rem rgba(20,20,40,.35),0 .5rem 0 -.25rem #ecebe5,0 .9rem 0 -.5rem #e2e1da;transform-origin:50% 0;backface-visibility:hidden}
+.ghost-leaf{position:absolute;left:0;right:0;z-index:2;will-change:transform,opacity}
+.cover{margin:0;padding:clamp(1.2rem,2.4vw,2rem) clamp(.8rem,1.6vw,1.2rem) 0}
+.cover img{width:100%;height:auto;aspect-ratio:2.4;object-fit:cover;border-radius:.15rem;box-shadow:0 0 0 1px #0000000f}
+.cal-loading{margin:2rem;text-align:center;color:var(--ink-2)}
+.cal-head{display:flex;align-items:center;justify-content:space-between;gap:1rem;padding:.9rem clamp(.8rem,1.6vw,1.2rem) .5rem}
+.cal-title{display:flex;align-items:baseline;gap:.7rem;margin:0;font-weight:900;letter-spacing:-.04em;color:#222}
+.cal-m{font-size:clamp(2.6rem,5vw,3.8rem);line-height:.9;color:var(--brand)}.cal-en{font-size:clamp(1rem,1.8vw,1.35rem);letter-spacing:.14em}.cal-y{font-size:.95rem;font-weight:600;letter-spacing:.06em;color:#8a8a90}
+.flip{display:grid;place-items:center;width:2.75rem;height:2.75rem;border:1px solid #00000018;border-radius:50%;background:#ffffffb0;color:#333;font:700 1.6rem/1 system-ui;cursor:pointer}
+.flip:disabled{opacity:.25;cursor:default}
+.cal-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));margin:0 clamp(.8rem,1.6vw,1.2rem);border-top:2px solid #2a2a2e}
+.wd{padding:.45rem .5rem;font-size:.72rem;font-weight:800;letter-spacing:.1em;color:#55555c;border-bottom:1px solid #2a2a2e33}.wd.sun{color:#d8342c}.wd.sat{color:#2c63d8}
+.cell{position:relative;display:flex;flex-direction:column;align-items:stretch;min-height:clamp(5.2rem,9vw,7.6rem);padding:.35rem .4rem .3rem;border:0;border-bottom:1px solid #2a2a2e22;border-right:1px solid #2a2a2e14;background:none;color:inherit;font:inherit;text-align:left;cursor:pointer;-webkit-tap-highlight-color:transparent;overflow:hidden}
+.cal-grid>.cell:nth-child(7n+7){border-right:0}
+.cell.blank{cursor:default;background:repeating-linear-gradient(135deg,transparent 0 7px,#0000000a 7px 8px)}
+.cell[aria-pressed="true"]{background:color-mix(in srgb,var(--pop) 16%,transparent)}
+@media(hover:hover){.cell:not(.blank):hover{background:color-mix(in srgb,var(--brand) 7%,transparent)}}
+.dn{position:relative;z-index:1;font-size:1rem;font-weight:800;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.cell.sun .dn{color:#d8342c}.cell.sat .dn{color:#2c63d8}.cell.past:not(.today) .dn{opacity:.55}
+.circle{position:absolute;left:-.25rem;top:-.35rem;width:2.6rem;height:2.2rem;color:#e0322c;overflow:visible}
+.ink{display:grid;gap:.05rem;margin-top:.15rem;font-family:Caveat,"Nanum Pen Script",cursive;color:var(--pen);font-size:1.18rem;line-height:1.05}
+.ink .w{display:block;white-space:nowrap;overflow:hidden;text-overflow:clip;transform-origin:0 50%}
+.ink .w:nth-child(even){color:var(--pen-2)}.ink .more{font-size:1rem;opacity:.75}
+.ticks{font-size:1.3rem;letter-spacing:.05em;line-height:.6;color:var(--pen)}
+.sticker{display:block;pointer-events:none;filter:drop-shadow(1.5px 0 0 #fff) drop-shadow(-1.5px 0 0 #fff) drop-shadow(0 1.5px 0 #fff) drop-shadow(0 -1.5px 0 #fff) drop-shadow(0 2px 2px rgba(0,0,0,.28))}
+.sticker.small{position:absolute;right:.2rem;bottom:.15rem;width:clamp(2rem,3.6vw,3rem);height:auto;aspect-ratio:1;object-fit:contain}
+.cell .sticker.r-ultra,.cell .sticker.r-epic{filter:drop-shadow(1.5px 0 0 #fff) drop-shadow(-1.5px 0 0 #fff) drop-shadow(0 1.5px 0 #fff) drop-shadow(0 -1.5px 0 #fff) drop-shadow(0 0 6px gold)}
+.cal-foot{margin:.7rem clamp(.8rem,1.6vw,1.2rem) 0;text-align:left;font-size:.75rem;color:#8a8a90}
+.pen{position:absolute;z-index:4;right:calc(19rem + clamp(1.5rem,3vw,3rem) - 3.2rem);bottom:-1.2rem;width:clamp(7rem,12vw,11rem);height:auto;rotate:8deg;pointer-events:none;filter:drop-shadow(0 .6rem .8rem rgba(0,0,0,.25))}
+.note{position:sticky;top:1.2rem;padding:2.1rem 1.4rem 1.5rem;background:#fff6b8;color:#2a2a2e;border-radius:.15rem .15rem .9rem .15rem;box-shadow:0 1.2rem 2rem -1rem rgba(60,50,0,.45),0 1px 2px rgba(0,0,0,.12);font-family:Caveat,"Nanum Pen Script",cursive}
+.note::before{content:"";position:absolute;left:50%;top:-.7rem;width:6.5rem;height:1.6rem;translate:-50% 0;rotate:-3deg;background:color-mix(in srgb,var(--pop) 55%,#fff);opacity:.85;box-shadow:0 1px 2px rgba(0,0,0,.12)}
+.note-day{margin:0 0 .6rem;font-size:2rem;line-height:1;color:var(--pen);font-weight:700}
+.note-list{list-style:none;margin:0;padding:0;display:grid;gap:.25rem;font-size:1.35rem;line-height:1.15}
+.note-list li{display:grid;grid-template-columns:5.6rem 1fr;gap:.5rem;padding:.2rem 0;border-bottom:1px solid #00000014}
+.note-t{color:#9a6b00;font-size:1.15rem}.note-w{color:#222}.note-empty{display:block!important;color:#7a7050;font-size:1.25rem}
+.note-sticker{display:grid;justify-items:center;gap:.2rem;margin-top:1.2rem;text-align:center}
+.sticker.big{width:8rem;height:8rem;object-fit:contain;pointer-events:auto;cursor:pointer}
+.note-mon{margin:.2rem 0 0;font-size:1.6rem;font-weight:700;line-height:1}
+.tag{margin:0;padding:.1rem .6rem;border-radius:999px;font:700 .7rem/1.6 system-ui;letter-spacing:.08em;text-transform:uppercase;background:#0000000f;color:#555}
+.tag.r-rare{background:#dbeafe;color:#1d4ed8}.tag.r-epic{background:#f3e8ff;color:#7e22ce}.tag.r-ultra{background:linear-gradient(90deg,#fde047,#fb923c);color:#5a3100}
+@media(prefers-reduced-motion:no-preference){
+  .sticker.big.play[data-move="jump"]{animation:st-jump .9s cubic-bezier(.3,1.6,.5,1)}.sticker.big.play[data-move="spin"]{animation:st-spin .9s cubic-bezier(.3,1.3,.5,1)}
+  .sticker.big.play[data-move="wiggle"]{animation:st-wiggle .8s ease-in-out}.sticker.big.play[data-move="dash"]{animation:st-dash .9s cubic-bezier(.3,1.4,.5,1)}
+  .sticker.big.play[data-move="cheer"]{animation:st-cheer .9s cubic-bezier(.3,1.6,.5,1)}.sticker.big.play[data-move="flip"]{animation:st-flip .9s cubic-bezier(.3,1.3,.5,1)}
+  @media(hover:hover){.cell:hover .sticker.small{animation:st-wiggle .6s ease-in-out}}
+}
+@keyframes st-jump{0%{transform:scale(.4) translateY(30%)}45%{transform:translateY(-28%) scale(1.08)}70%{transform:translateY(0) scale(.96,1.04)}100%{transform:none}}
+@keyframes st-spin{0%{transform:scale(.3) rotate(-200deg)}100%{transform:none}}
+@keyframes st-wiggle{0%,100%{rotate:0deg}25%{rotate:-12deg}50%{rotate:10deg}75%{rotate:-6deg}}
+@keyframes st-dash{0%{transform:translateX(-120%) skewX(18deg);opacity:0}60%{transform:translateX(8%) skewX(-8deg);opacity:1}100%{transform:none}}
+@keyframes st-cheer{0%{transform:scale(.2)}50%{transform:scale(1.25)}75%{transform:scale(.92)}100%{transform:none}}
+@keyframes st-flip{0%{transform:perspective(400px) rotateY(-180deg) scale(.5)}100%{transform:none}}
+@media(max-width:60rem){.wall{grid-template-columns:1fr}.note{position:relative;top:0;max-width:30rem;width:100%;justify-self:center}.pen{display:none}}
+@media(max-width:44rem){.cal{rotate:0deg}.cell{min-height:3.6rem;padding:.25rem .2rem}.dn{font-size:.85rem}.wd{padding:.35rem .1rem;text-align:center;letter-spacing:0}.sticker.small{right:50%;translate:50% 0;bottom:.15rem;width:1.9rem}.ticks{font-size:1rem}.cal-head{padding-top:.6rem}.circle{left:-.4rem;top:-.45rem;width:2.2rem;height:1.9rem}}
+@media(prefers-contrast:more){.ink,.note-w{color:#000}.leaf{background:#fff}}
+
 /* ---------- Lock sheet ---------- */
 .scrim{position:fixed;inset:0;z-index:40;background:var(--scrim);opacity:0;pointer-events:none}.scrim.is-live{pointer-events:auto}
 .sheet{position:fixed;z-index:41;left:50%;bottom:0;width:min(100%,26rem);padding:.6rem 1.4rem max(1.6rem,env(safe-area-inset-bottom));border-radius:1.6rem 1.6rem 0 0;color:var(--ink);background:rgba(250,250,252,.78);-webkit-backdrop-filter:blur(34px) saturate(180%);backdrop-filter:blur(34px) saturate(180%);border:1px solid rgba(255,255,255,.6);border-bottom:0;box-shadow:0 -1rem 3rem rgba(0,0,0,.3);transform:translate(-50%,110%);touch-action:none;will-change:transform}

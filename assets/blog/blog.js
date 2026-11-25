@@ -182,7 +182,117 @@
       list.append(card);
     }
   }
+  // ---- Schedule: a paper wall calendar. Entries are written in pen; each routine day carries its sticker.
+  async function schedule() {
+    const raw = savedKey(), leaf = $('#leaf'), note = $('#note'), cal = $('#cal');
+    if (!raw) { location.replace('/?unlock=schedule'); return; }
+    let data;
+    try { const box = await fetch(B.schedule, { cache: 'no-cache' }).then((r) => { if (!r.ok) throw new Error('schedule'); return r.json(); }); data = await unseal(raw, box); }
+    catch (e) { forget(); location.replace('/?unlock=schedule'); return; }
+    const pics = new Map(), key = crypto.subtle.importKey('raw', raw, 'AES-GCM', false, ['decrypt']);
+    const picture = (url) => pics.get(url) || (pics.set(url, fetch(url).then((r) => r.arrayBuffer()).then(async (buf) => {
+      const plain = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: new Uint8Array(buf, 0, 12) }, await key, new Uint8Array(buf, 12));
+      return URL.createObjectURL(new Blob([plain], { type: 'image/webp' }));
+    })), pics.get(url));
+    const seoul = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Seoul' }).format(new Date());
+    const pad = (n) => String(n).padStart(2, '0');
+    const shift = (m, d) => { const x = new Date(Date.UTC(+m.slice(0, 4), +m.slice(5, 7) - 1 + d, 1)); return x.getUTCFullYear() + '-' + pad(x.getUTCMonth() + 1); };
+    const hash = (s) => { let h = 2166136261; for (const c of s) { h ^= c.charCodeAt(0); h = Math.imul(h, 16777619); } return (h >>> 0) / 4294967296; };
+    const tilt = (s, k = 2.4) => ((hash(s) - 0.5) * k).toFixed(2) + 'deg';
+    const el = (tag, cls, text) => { const n = document.createElement(tag); if (cls) n.className = cls; if (text != null) n.textContent = text; return n; };
+    const clock = (t) => t.replace(/^0/, '');
+    const days = data.days || {};
+    let month = seoul.slice(0, 7);
+    if (month < data.first) month = data.first; if (month > data.last) month = data.last;
+    let chosen = month === seoul.slice(0, 7) ? seoul : month + '-01';
+    const wide = () => matchMedia('(min-width: 44rem)').matches;
+    const cover = leaf.querySelector('.cover');
+
+    function sticker(s, cls) {
+      const img = el('img', 'sticker ' + cls + ' r-' + s.r); img.alt = s.n; img.decoding = 'async'; img.dataset.move = s.m;
+      picture(s.i).then((u) => { img.src = u; }).catch(() => img.remove());
+      return img;
+    }
+    function page(m) {
+      const frag = document.createDocumentFragment();
+      const head = el('header', 'cal-head');
+      const prev = el('button', 'flip prev pressable'); prev.type = 'button'; prev.setAttribute('aria-label', T.prev); prev.textContent = '‹'; prev.disabled = m <= data.first;
+      const next = el('button', 'flip next pressable'); next.type = 'button'; next.setAttribute('aria-label', T.next); next.textContent = '›'; next.disabled = m >= data.last;
+      const title = el('h2', 'cal-title'); const y = +m.slice(0, 4), mo = +m.slice(5, 7);
+      title.append(el('span', 'cal-m', String(mo)), el('span', 'cal-en', new Intl.DateTimeFormat('en', { month: 'long', timeZone: 'UTC' }).format(new Date(Date.UTC(y, mo - 1, 1))).toUpperCase()), el('span', 'cal-y', String(y)));
+      prev.addEventListener('click', () => go(-1)); next.addEventListener('click', () => go(1));
+      head.append(prev, title, next); frag.append(head);
+      const grid = el('div', 'cal-grid'); grid.setAttribute('role', 'grid');
+      T.weekdays.forEach((w, i) => grid.append(el('span', 'wd' + (i === 0 ? ' sun' : i === 6 ? ' sat' : ''), w)));
+      const lead = new Date(Date.UTC(y, mo - 1, 1)).getUTCDay(), count = new Date(Date.UTC(y, mo, 0)).getUTCDate();
+      for (let i = 0; i < lead; i++) grid.append(el('span', 'cell blank'));
+      for (let d = 1; d <= count; d++) {
+        const day = m + '-' + pad(d), info = days[day] || { e: [] }, dow = (lead + d - 1) % 7;
+        const cell = el('button', 'cell' + (dow === 0 ? ' sun' : dow === 6 ? ' sat' : '') + (day === seoul ? ' today' : '') + (day < seoul ? ' past' : ''));
+        cell.type = 'button'; cell.dataset.day = day; cell.setAttribute('aria-pressed', String(day === chosen));
+        cell.setAttribute('aria-label', d + '일' + (info.e.length ? ', 일정 ' + info.e.length + '개' : '') + (info.s ? ', 스티커 ' + info.s.n : ''));
+        const num = el('span', 'dn', String(d)); cell.append(num);
+        if (day === seoul) cell.insertAdjacentHTML('beforeend', '<svg class="circle" viewBox="0 0 60 50" aria-hidden="true"><path d="M33 6C17 4 5 13 6 26s15 20 29 18 21-11 19-23C52 9 40 3 26 6" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/></svg>');
+        const ink = el('span', 'ink'), shown = wide() ? 3 : 0;
+        info.e.slice(0, shown).forEach((x, i) => { const l = el('span', 'w', (x[3] ? '' : clock(x[0]) + ' ') + x[2]); l.style.rotate = tilt(day + i, 2); ink.append(l); });
+        if (info.e.length > shown) ink.append(shown ? el('span', 'w more', '+' + (info.e.length - shown)) : el('span', 'ticks', '•'.repeat(Math.min(info.e.length, 4))));
+        cell.append(ink);
+        if (info.s) { const s = sticker(info.s, 'small'); s.style.rotate = tilt(day + 's', 24); cell.append(s); }
+        cell.addEventListener('click', () => choose(day, true));
+        grid.append(cell);
+      }
+      while (grid.children.length % 7) grid.append(el('span', 'cell blank'));
+      frag.append(grid);
+      if (data.updated) frag.append(el('p', 'cal-foot', '↻ ' + new Intl.DateTimeFormat('ko', { month: 'long', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZone: 'Asia/Seoul' }).format(new Date(data.updated))));
+      return frag;
+    }
+    function paint(target) { target.replaceChildren(cover.cloneNode(true), page(month)); }
+    function choose(day, user) {
+      chosen = day;
+      leaf.querySelectorAll('.cell[data-day]').forEach((c) => c.setAttribute('aria-pressed', String(c.dataset.day === day)));
+      const info = days[day] || { e: [] }, date = new Date(day + 'T00:00:00Z');
+      note.hidden = false; note.replaceChildren(); note.style.rotate = tilt(day, 2.2);
+      const h = el('h3', 'note-day', new Intl.DateTimeFormat('ko', { month: 'long', day: 'numeric', weekday: 'short', timeZone: 'UTC' }).format(date)); note.append(h);
+      const list = el('ul', 'note-list');
+      for (const x of info.e) { const li = el('li'); li.append(el('span', 'note-t', x[3] ? T.allDay : clock(x[0]) + (x[1] ? '–' + clock(x[1]) : '')), el('span', 'note-w', x[2])); list.append(li); }
+      if (!info.e.length) list.append(el('li', 'note-empty', T.noEvents));
+      note.append(list);
+      const box = el('div', 'note-sticker');
+      if (info.s) {
+        const s = sticker(info.s, 'big'); box.append(s, el('p', 'note-mon', info.s.n), el('p', 'tag r-' + info.s.r, { common: 'Common', rare: 'Rare', epic: 'Super rare', ultra: 'Ultra rare' }[info.s.r]));
+        s.addEventListener('click', () => { s.classList.remove('play'); void s.offsetWidth; s.classList.add('play'); });
+        requestAnimationFrame(() => s.classList.add('play'));
+      } else box.append(el('p', 'note-empty', day <= seoul ? T.noSticker : '✧'));
+      note.append(box);
+      if (user && !wide()) note.scrollIntoView({ behavior: reduced() ? 'auto' : 'smooth', block: 'nearest' });
+    }
+    // Turning the page: the old leaf swings up over the spiral, as on a real wall calendar.
+    let turning = false;
+    function go(delta) {
+      const to = shift(month, delta); if (turning || to < data.first || to > data.last) return;
+      turning = true; const ghost = leaf.cloneNode(true); ghost.classList.add('ghost-leaf'); ghost.removeAttribute('id'); ghost.style.top = leaf.offsetTop + 'px'; ghost.setAttribute('aria-hidden', 'true');
+      ghost.querySelectorAll('img.sticker').forEach((img, i) => { const live = leaf.querySelectorAll('img.sticker')[i]; if (live) img.src = live.src; });
+      month = to; const first = Object.keys(days).find((d) => d.startsWith(to));
+      chosen = to === seoul.slice(0, 7) ? seoul : first || to + '-01';
+      const down = delta < 0;
+      if (down) { cal.append(ghost); paint(ghost); ghost.style.transform = 'rotateX(-115deg)'; ghost.style.opacity = '0'; }
+      else { cal.append(ghost); paint(leaf); }
+      const turn = new Spring((v) => { ghost.style.transform = 'rotateX(' + v + 'deg)'; ghost.style.opacity = String(Math.max(0, 1 - Math.abs(v) / 115)); }, 1, 0.42);
+      let ended = false;
+      const end = () => { if (ended) return; ended = true; turn.stop(); if (down) paint(leaf); ghost.remove(); turning = false; choose(chosen); };
+      turn.jump(down ? -115 : 0);
+      // Opacity reaches nothing well before the spring's last fraction of a degree; finish there.
+      turn.to(down ? 0 : -115, 0, end); setTimeout(end, 900);
+    }
+    addEventListener('keydown', (e) => { if (e.target.closest && e.target.closest('input,textarea')) return; if (e.key === 'ArrowRight' || e.key === 'PageDown') go(1); else if (e.key === 'ArrowLeft' || e.key === 'PageUp') go(-1); });
+    // A sideways flick turns the page too; vertical scrolling stays with the browser.
+    let sw = null;
+    cal.addEventListener('pointerdown', (e) => { if (e.pointerType !== 'mouse') sw = { x: e.clientX, y: e.clientY, t: e.timeStamp }; }, { passive: true });
+    cal.addEventListener('pointerup', (e) => { if (!sw) return; const dx = e.clientX - sw.x, dy = e.clientY - sw.y, v = dx / Math.max(1, e.timeStamp - sw.t); sw = null; if (Math.abs(dx) > 1.4 * Math.abs(dy) && (Math.abs(dx) > 90 || Math.abs(v) > 0.5)) go(dx < 0 ? 1 : -1); }, { passive: true });
+    let lastWide = wide(); addEventListener('resize', () => { if (wide() !== lastWide && !turning) { lastWide = wide(); paint(leaf); choose(chosen); } });
+    paint(leaf); choose(chosen);
+  }
   const lockPill = $('[data-lock-page]'); if (lockPill) lockPill.addEventListener('click', () => { forget(); location.href = '/'; });
   if (B.page !== 'home') { const p = $('[data-lock-pill]'); if (p) { p.hidden = false; p.addEventListener('click', () => { forget(); location.href = '/'; }); } document.querySelectorAll('.nav [data-go]').forEach((a) => a.removeAttribute('data-go')); }
-  if (B.page === 'home') home(); else if (B.page === 'diary') diary();
+  if (B.page === 'home') home(); else if (B.page === 'diary') diary(); else if (B.page === 'schedule') schedule();
 })();
