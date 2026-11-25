@@ -59,6 +59,16 @@ svg{width:1em;height:1em;flex:none}
 .stats{grid-column:1/-1;display:grid;grid-template-columns:repeat(auto-fit,minmax(14rem,1fr));gap:1rem}
 .stats div{display:flex;align-items:baseline;justify-content:space-between;gap:1rem;padding:1.3rem 1.4rem;border-radius:.6rem;background:#fff}
 .stats strong{font-size:clamp(2rem,4vw,3.2rem);font-weight:800;letter-spacing:-.04em;line-height:1}.stats span{display:inline-flex;align-items:center;gap:.4rem;font-size:.8rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-2)}.stats svg{color:var(--brand)}
+.journey{margin-bottom:clamp(3.5rem,8vw,7rem)}
+.steps{list-style:none;margin:2rem 0 0;padding:0;border-top:1px solid var(--line)}
+.step{display:grid;grid-template-columns:minmax(7rem,10rem) 1fr auto;align-items:center;gap:1.25rem;padding:1.3rem .3rem;border-bottom:1px solid var(--line)}
+.step-years{font-size:.95rem;font-weight:750;color:var(--ink-2);font-variant-numeric:tabular-nums;letter-spacing:.01em}
+.step-title{display:grid;font-size:clamp(1.35rem,3vw,2.3rem);font-weight:850;letter-spacing:-.035em;line-height:1.05}.step-title small{margin-top:.4rem;font-size:.9rem;font-weight:500;letter-spacing:0;color:var(--ink-2)}
+.step-tag{display:inline-flex;align-items:center;gap:.4rem;padding:.35rem .75rem;border-radius:999px;background:#0000000d;font-size:.75rem;font-weight:750;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-2)}
+.live{width:.5rem;height:.5rem;border-radius:50%;background:#34c759;box-shadow:0 0 0 .2rem #34c75933}
+.step.award{background:linear-gradient(90deg,color-mix(in srgb,var(--pop) 14%,transparent),transparent 70%);padding-left:1rem;padding-right:1rem;border-radius:.5rem}
+.step.award .step-title{color:var(--ink)}.step.award .step-tag{background:var(--pop);color:#fff}.step.award .step-years{color:var(--brand-2)}
+@media(max-width:52rem){.step{grid-template-columns:1fr auto;gap:.5rem 1rem}.step-years{grid-column:1/-1}.step-tag{grid-row:2;grid-column:2}}
 .rows{list-style:none;margin:2rem 0 0;padding:0;border-top:1px solid var(--line)}
 .row{display:grid;grid-template-columns:4rem 1fr 5.5rem 6.5rem 3rem;align-items:center;gap:1.25rem;padding:1.2rem .3rem;border-bottom:1px solid var(--line);text-decoration:none;color:inherit;cursor:pointer;transition:background-color 160ms ease-out,padding 160ms ease-out}
 .row:hover,.row.is-pressed{background:#fff;padding-left:1rem;padding-right:1rem}.row.is-pressed{transform:scale(.99)}
