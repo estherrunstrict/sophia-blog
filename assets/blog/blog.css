@@ -99,6 +99,14 @@ svg{width:1em;height:1em;flex:none}
 /* ---------- Schedule: a paper wall calendar written in pen ---------- */
 [data-theme="simon"]{--pen:#1f45c8;--pen-2:#3f68e6}[data-theme="sophia"]{--pen:#7a2fc0;--pen-2:#a35ae0}
 .page:has(.wall){max-width:80rem}
+.academies{list-style:none;display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,19rem),1fr));gap:clamp(.8rem,2vw,1.4rem);margin:0 0 clamp(1.6rem,3vw,2.6rem);padding:0;font-size:clamp(.82rem,1.5vw,1rem)}
+.academies li{rotate:var(--tilt)}
+.academy{position:relative;display:grid;place-items:center;gap:.6rem;height:12.5em;padding:1.8em 1em 1em;border-radius:.4rem;background:#fff;color:var(--ink-2);text-decoration:none;box-shadow:0 1px 2px rgba(0,0,0,.08),0 1rem 1.8rem -1rem rgba(20,20,40,.3)}
+.academy::before{content:"";position:absolute;top:-.6rem;left:50%;width:4.6rem;height:1.3rem;translate:-50% 0;rotate:calc(var(--tilt) * -2);background:color-mix(in srgb,var(--pop) 50%,#fff);opacity:.85}
+.academy img{max-width:none;object-fit:contain}
+.academy span{font-size:.72rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;text-align:center}
+@media(hover:hover){.academy:hover{box-shadow:0 1px 2px rgba(0,0,0,.08),0 1.4rem 2.2rem -1rem rgba(20,20,40,.38);translate:0 -2px}}
+@media(max-width:44rem){.academies{grid-template-columns:1fr;font-size:.7rem}.academies li:last-child:nth-child(odd){grid-column:1/-1}}
 .wall{position:relative;display:grid;grid-template-columns:minmax(0,1fr) 19rem;gap:clamp(1.5rem,3vw,3rem);align-items:start;padding:1rem 0 2rem}
 .cal{position:relative;perspective:1600px;padding-top:clamp(.9rem,1.6vw,1.4rem);rotate:-.4deg}
 .spiral{position:absolute;z-index:3;left:3%;right:3%;top:0;width:94%;height:auto;pointer-events:none;filter:drop-shadow(0 3px 2px rgba(0,0,0,.35))}
