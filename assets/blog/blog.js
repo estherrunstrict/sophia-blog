@@ -164,22 +164,76 @@
     if (!raw) { location.replace('/?unlock=diary'); return; }
     let data;
     try { const v = await vault(); data = await unseal(raw, v.diary); } catch (e) { forget(); location.replace('/?unlock=diary'); return; }
-    const entries = (data.entries || []).slice().sort((a, b) => (a.date < b.date ? 1 : -1));
+    const entries = (data.entries || []).slice().sort((a, b) => ((a.date + (a.time || '')) < (b.date + (b.time || '')) ? 1 : -1));
+    const media = data.media || {};
     list.textContent = '';
     if (!entries.length) { const box = document.createElement('div'); box.className = 'empty'; const img = new Image(); img.src = B.art + 'diary.webp'; img.alt = ''; const p = document.createElement('p'); p.textContent = T.empty; box.append(img, p); list.append(box); return; }
+    const el = (tag, cls, text) => { const n = document.createElement(tag); if (cls) n.className = cls; if (text != null) n.textContent = text; return n; };
+    // Photos and voice notes are sealed files: fetched and decrypted only when they come into view or are played.
+    const key = crypto.subtle.importKey('raw', raw, 'AES-GCM', false, ['decrypt']), blobs = new Map();
+    const blob = (ref) => { const m = media[ref]; if (!m) return Promise.reject(new Error('missing')); if (!blobs.has(ref)) blobs.set(ref, fetch(m[0]).then((r) => { if (!r.ok) throw new Error('media'); return r.arrayBuffer(); }).then(async (buf) => URL.createObjectURL(new Blob([await crypto.subtle.decrypt({ name: 'AES-GCM', iv: new Uint8Array(buf, 0, 12) }, await key, new Uint8Array(buf, 12))], { type: m[1] })))); return blobs.get(ref); };
+    const seen = 'IntersectionObserver' in window ? new IntersectionObserver((list) => { for (const x of list) if (x.isIntersecting) { seen.unobserve(x.target); x.target.load(); } }, { rootMargin: '600px 0px' }) : null;
+    const runs = (node, rs) => { for (const r of rs || []) { const [t, f = '', href] = r; let n = document.createTextNode(t); for (const [c, tag] of [['c', 'code'], ['s', 's'], ['i', 'em'], ['b', 'strong']]) if (f.includes(c)) { const w = document.createElement(tag); w.append(n); n = w; } if (href && /^https?:\/\//.test(href)) { const a = el('a'); a.href = href; a.target = '_blank'; a.rel = 'noopener noreferrer'; a.append(n); n = a; } node.append(n); } return node; };
+    const fmt = (ms) => { const s = Math.max(0, Math.round(ms / 1000)); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); };
+    function photo(ref, i, n) {
+      const m = media[ref]; if (!m || !/^image\//.test(m[1])) return null;
+      const fig = el('button', 'ph'); fig.type = 'button'; fig.setAttribute('aria-label', T.photo + (n > 1 ? ' ' + (i + 1) + '/' + n : ''));
+      if (m[3] && m[4] && n === 1) fig.style.aspectRatio = m[3] + ' / ' + m[4];
+      const img = new Image(); img.alt = ''; img.decoding = 'async'; fig.append(img);
+      fig.load = () => blob(ref).then((u) => { img.src = u; img.onload = () => fig.classList.add('in'); }).catch(() => fig.classList.add('gone'));
+      fig.addEventListener('click', () => blob(ref).then(view));
+      seen ? seen.observe(fig) : fig.load();
+      return fig;
+    }
+    function view(url) {
+      const d = el('dialog', 'lightbox'), img = new Image(); img.src = url; img.alt = ''; d.append(img);
+      d.addEventListener('click', () => d.close()); d.addEventListener('close', () => d.remove()); document.body.append(d); d.showModal();
+    }
+    let playing = null;
+    function voice(ref) {
+      const m = media[ref]; if (!m) return null;
+      const box = el('div', 'voice'), btn = el('button', 'voice-go'), bars = el('span', 'voice-bars'), len = el('span', 'voice-len', m[2] ? fmt(m[2]) : '');
+      btn.type = 'button'; btn.setAttribute('aria-label', T.listen); btn.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path class="i-play" d="M8 5.5v13l10.5-6.5z"/><path class="i-pause" d="M7 5h3.6v14H7zM13.4 5H17v14h-3.6z"/></svg>';
+      let seed = 0; for (const c of ref) seed = (seed * 31 + c.charCodeAt(0)) >>> 0;
+      for (let i = 0; i < 28; i++) { seed = (seed * 1103515245 + 12345) >>> 0; const b = el('i'); b.style.height = (22 + (seed % 78)) + '%'; bars.append(b); }
+      box.append(btn, bars, len);
+      let audio = null;
+      const paint = () => { const p = audio && audio.duration ? audio.currentTime / audio.duration : 0; [...bars.children].forEach((b, i) => b.classList.toggle('on', i < Math.round(p * bars.children.length))); len.textContent = audio && audio.duration && audio.currentTime ? fmt(audio.currentTime * 1000) : (m[2] ? fmt(m[2]) : audio && audio.duration ? fmt(audio.duration * 1000) : ''); };
+      btn.addEventListener('click', async () => {
+        if (!audio) { box.classList.add('loading'); try { audio = new Audio(await blob(ref)); } catch (e) { box.classList.remove('loading'); box.classList.add('gone'); return; } box.classList.remove('loading'); audio.addEventListener('timeupdate', paint); audio.addEventListener('loadedmetadata', paint); audio.addEventListener('ended', () => { box.classList.remove('on'); audio.currentTime = 0; paint(); }); audio.addEventListener('pause', () => box.classList.remove('on')); audio.addEventListener('play', () => box.classList.add('on')); }
+        if (audio.paused) { if (playing && playing !== audio) playing.pause(); playing = audio; audio.play().catch(() => {}); } else audio.pause();
+      });
+      bars.addEventListener('click', (e) => { if (!audio || !audio.duration) return; const r = bars.getBoundingClientRect(); audio.currentTime = Math.min(1, Math.max(0, (e.clientX - r.left) / r.width)) * audio.duration; paint(); });
+      return box;
+    }
+    function block(b) {
+      const [k] = b;
+      if (k === 'h') return runs(el(b[2] <= 2 ? 'h3' : 'h4'), b[1]);
+      if (k === 'p') return runs(el('p'), b[1]);
+      if (k === 'q') return runs(el('blockquote'), b[1]);
+      if (k === 'code') return el('pre', null, b[1]);
+      if (k === 'li') { const li = runs(el('div', 'li li-' + b[2]), b[1]); li.style.setProperty('--in', b[3] || 0); return li; }
+      if (k === 'audio') return voice(b[1]);
+      if (k === 'media') { const shots = b[1].map((r, i) => photo(r, i, b[1].length)).filter(Boolean); if (!shots.length) return null; const g = el('div', 'album n' + Math.min(shots.length, 4)); g.append(...shots); return g; }
+      return null;
+    }
+    const dayFmt = new Intl.DateTimeFormat('ko', { weekday: 'short', timeZone: 'UTC' });
     let month = '';
     for (const en of entries) {
       const m = String(en.date).slice(0, 7);
-      if (m !== month) { month = m; const h = document.createElement('p'); h.className = 'month'; h.textContent = new Intl.DateTimeFormat(B.lang, { year: 'numeric', month: 'long', timeZone: 'UTC' }).format(new Date(m + '-01T00:00:00Z')); list.append(h); }
-      const card = document.createElement('article'); card.className = 'entry';
-      const time = document.createElement('time'); time.dateTime = en.date; time.textContent = new Intl.DateTimeFormat(B.lang, { month: 'long', day: 'numeric', weekday: 'short', timeZone: 'UTC' }).format(new Date(en.date + 'T00:00:00Z'));
-      const h2 = document.createElement('h2'); h2.textContent = en.title || T.untitled; card.append(time, h2);
-      if (typeof en.audio === 'string' && /^https:\/\//.test(en.audio)) {
-        const audio = document.createElement('audio'); audio.controls = true; audio.preload = 'none'; audio.src = en.audio; card.append(audio);
-        if (typeof en.page === 'string' && /^https:\/\//.test(en.page)) { const alt = document.createElement('a'); alt.className = 'alt'; alt.href = en.page; alt.target = '_blank'; alt.rel = 'noopener noreferrer'; alt.textContent = T.listenElsewhere; card.append(alt); }
-      }
-      if (en.text) { const p = document.createElement('p'); p.textContent = en.text; card.append(p); }
-      list.append(card);
+      if (m !== month) { month = m; const h = el('p', 'month'); h.textContent = new Intl.DateTimeFormat(B.lang, { year: 'numeric', month: 'long', timeZone: 'UTC' }).format(new Date(m + '-01T00:00:00Z')); list.append(h); }
+      const d = new Date(en.date + 'T00:00:00Z');
+      const card = el('article', 'entry' + (en.source === 'storypad' ? ' sp' : ''));
+      const when = el('time', 'when'); when.dateTime = en.date; when.append(el('b', null, String(d.getUTCDate())), el('small', null, dayFmt.format(d)));
+      const body = el('div', 'entry-body'), top = el('div', 'entry-top');
+      if (en.time) top.append(el('span', 'clock', en.time));
+      for (const t of en.tags || []) top.append(el('span', 'chip', (t[1] ? t[1] + ' ' : '') + t[0]));
+      if (en.star) { const s = el('span', 'star', '★'); s.title = T.starred; top.append(s); }
+      body.append(top, el('h2', null, en.title || T.untitled));
+      if (en.pages) en.pages.forEach((pg, i) => { if (i) body.append(el('p', 'pg', (i + 1) + T.pageWord)); for (const b of pg) { const n = block(b); if (n) body.append(n); } });
+      if (typeof en.audio === 'string' && /^https:\/\//.test(en.audio)) { const audio = el('audio'); audio.controls = true; audio.preload = 'none'; audio.src = en.audio; body.append(audio); }
+      if (en.text) body.append(el('p', null, en.text));
+      card.append(when, body); list.append(card);
     }
   }
   // ---- Schedule: a paper wall calendar. Entries are written in pen; each routine day carries its sticker.
